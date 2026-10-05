@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Detectives de Datos: media, mediana y moda</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg1:#d6f1ff; --bg2:#ffe9c7;
+  --ink:#1d2a5b; --muted:#53639a; --card:#ffffff; --line:#1d2a5b;
+  --blue:#2e9bff; --sky:#8ad6ff; --sun:#ffd23f; --coral:#ff5d73; --mint:#2fd39a; --grape:#8b5cf6; --orange:#ff9f1c;
+  --on-bright:#1d2a5b;
+  --good-bg:#d3f8e6; --bad-bg:#ffdfe4; --soft:#eef6ff; --explain:#fff6d6;
+  --bubble:rgba(255,255,255,.55); --bubble-line:rgba(255,255,255,.9); --bubble-ink:rgba(29,42,91,.28);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg1:#121a45; --bg2:#2b1d52;
+    --ink:#f3f5ff; --muted:#b2bcea; --card:#222c68; --line:#0b1030;
+    --good-bg:#12503c; --bad-bg:#5d2036; --soft:#2b3680; --explain:#3a3a6e;
+    --bubble:rgba(138,214,255,.14); --bubble-line:rgba(138,214,255,.35); --bubble-ink:rgba(243,245,255,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --bg1:#121a45; --bg2:#2b1d52;
+  --ink:#f3f5ff; --muted:#b2bcea; --card:#222c68; --line:#0b1030;
+  --good-bg:#12503c; --bad-bg:#5d2036; --soft:#2b3680; --explain:#3a3a6e;
+  --bubble:rgba(138,214,255,.14); --bubble-line:rgba(138,214,255,.35); --bubble-ink:rgba(243,245,255,.35);
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*,*::before,*::after{box-sizing:inherit}
+body{
+  margin:0; min-height:100%;
+  font-family:'Fredoka','Baloo 2','Trebuchet MS',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color:var(--ink);
+  background:linear-gradient(160deg,var(--bg1),var(--bg2)) fixed;
+  background-color:var(--bg1);
+  -webkit-tap-highlight-color:transparent;
+}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:4px solid var(--grape);outline-offset:3px}
+.hidden{display:none!important}
+
+/* burbujas de fondo */
+.bubbles{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:0}
+.bubbles .b{
+  position:absolute;bottom:-90px;border-radius:50%;
+  background:var(--bubble);border:2px solid var(--bubble-line);
+  display:grid;place-items:center;font-weight:700;color:var(--bubble-ink);
+  animation:rise linear infinite;
+}
+@keyframes rise{
+  0%{transform:translateY(0) translateX(0) rotate(0)}
+  50%{transform:translateY(-60vh) translateX(18px) rotate(12deg)}
+  100%{transform:translateY(-125vh) translateX(-10px) rotate(-8deg)}
+}
+
+.app{position:relative;z-index:1;max-width:760px;margin:0 auto;padding:16px 16px 40px}
+
+.card{
+  background:var(--card);border:3px solid var(--line);border-radius:26px;
+  box-shadow:0 7px 0 var(--line);padding:18px;margin-bottom:22px;
+}
+.card h2{margin:0 0 12px;font-size:1.3rem;display:flex;align-items:center;gap:10px}
+.card h2 .n{
+  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
+  background:var(--sun);color:var(--on-bright);border:3px solid var(--line);font-size:1.05rem;flex:none;
+}
+
+/* encabezado */
+.hero{text-align:center;padding:8px 0 18px;position:relative}
+.hero h1{
+  margin:6px 0 4px;font-size:clamp(2.1rem,8vw,3.3rem);line-height:1.02;font-weight:700;letter-spacing:.2px;
+  text-shadow:0 4px 0 var(--sun),0 7px 0 var(--line);
+}
+.hero p{margin:14px auto 0;max-width:32ch;color:var(--muted);font-size:1.1rem;font-weight:500}
+.mwrap{position:relative;width:112px;margin:0 auto}
+.mwrap .lens{position:absolute;right:-26px;bottom:-4px;font-size:3rem;transform:rotate(-8deg);filter:drop-shadow(0 3px 0 rgba(0,0,0,.2))}
+
+/* mascota */
+.mascot{display:block;animation:bob 2.6s ease-in-out infinite}
+.mascot svg{width:100%;height:auto;display:block;overflow:visible}
+.mascot [data-m]{display:none}
+.mascot[data-mood="happy"] [data-m="happy"],
+.mascot[data-mood="cheer"] [data-m="cheer"],
+.mascot[data-mood="sad"] [data-m="sad"],
+.mascot[data-mood="think"] [data-m="think"]{display:inline}
+.mascot[data-mood="cheer"]{animation:jump .6s ease-out 1}
+.mascot[data-mood="sad"]{animation:none;transform:rotate(-6deg)}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes jump{0%{transform:translateY(0) scale(1)}35%{transform:translateY(-18px) scale(1.08,.94)}70%{transform:translateY(0) scale(.96,1.05)}100%{transform:translateY(0) scale(1)}}
+
+/* repaso */
+details.recall{padding:0}
+details.recall summary{cursor:pointer;font-weight:700;font-size:1.2rem;padding:16px 18px;list-style:none;display:flex;align-items:center;gap:10px}
+details.recall summary::-webkit-details-marker{display:none}
+details.recall summary::after{content:"▾";margin-left:auto;transition:transform .2s}
+details.recall[open] summary::after{transform:rotate(180deg)}
+.recall .body{padding:0 18px 18px;display:grid;gap:10px}
+.def{border:3px solid var(--line);border-radius:18px;padding:10px 14px;font-weight:500;line-height:1.35}
+.def b{display:block;font-size:1.1rem;margin-bottom:2px}
+.def.t-mean{background:var(--sky);color:var(--on-bright)}
+.def.t-median{background:var(--mint);color:var(--on-bright)}
+.def.t-mode{background:var(--orange);color:var(--on-bright)}
+
+/* opciones */
+.row{display:flex;flex-wrap:wrap;gap:10px}
+.opt{
+  flex:1 1 0;min-width:96px;padding:10px 12px;border:3px solid var(--line);border-radius:18px;
+  background:var(--card);color:var(--ink);font-weight:600;font-size:1.05rem;
+  box-shadow:0 5px 0 var(--line);transition:transform .08s,box-shadow .08s,background .15s;
+}
+.opt:active{transform:translateY(3px);box-shadow:0 2px 0 var(--line)}
+.opt[aria-pressed="true"]{background:var(--sun);color:var(--on-bright);transform:translateY(2px);box-shadow:0 3px 0 var(--line)}
+.opt.big{display:flex;flex-direction:column;align-items:center;gap:2px;padding:12px 8px}
+.opt.big .ico{font-size:1.9rem;line-height:1.1}
+.opt.preset{flex:0 1 auto;background:var(--soft)}
+.opt.preset[aria-pressed="true"]{background:var(--sun)}
+.opt.sm{min-width:64px;padding:8px 10px}
+.sub{margin:16px 0 8px;font-weight:600;color:var(--muted)}
+
+/* selectores numéricos */
+.ranges{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:6px}
+.field{background:var(--soft);border:3px solid var(--line);border-radius:20px;padding:10px 10px;text-align:center}
+.field label{display:block;font-weight:600;font-size:.98rem;color:var(--muted);margin-bottom:6px}
+.stepper{display:flex;align-items:center;justify-content:center;gap:6px}
+.stepper button{
+  min-width:42px;height:42px;border-radius:14px;border:3px solid var(--line);background:var(--coral);color:var(--on-bright);
+  font-size:1rem;font-weight:700;line-height:1;box-shadow:0 4px 0 var(--line);padding:0 6px;
+}
+.stepper button[data-d="1"],.stepper button[data-d="5"]{background:var(--mint)}
+.stepper button:active{transform:translateY(3px);box-shadow:0 1px 0 var(--line)}
+.stepper button:disabled{opacity:.4;cursor:not-allowed}
+.stepper output{min-width:2.2ch;font-size:2.1rem;font-weight:700;text-align:center;padding:0 4px}
+
+.hint{margin:14px 0 0;padding:10px 14px;border-radius:16px;background:var(--soft);border:3px dashed var(--line);font-weight:500;text-align:center;line-height:1.4}
+.hint b{font-weight:700}
+.note{margin:8px 2px 0;color:var(--muted);font-size:.95rem}
+
+/* botones */
+.btn{
+  border:3px solid var(--line);border-radius:20px;padding:12px 20px;font-weight:700;font-size:1.15rem;
+  box-shadow:0 6px 0 var(--line);transition:transform .08s,box-shadow .08s;color:var(--on-bright);background:var(--card);
+}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 var(--line)}
+.btn:disabled{opacity:.6}
+.btn.play{width:100%;font-size:1.7rem;padding:16px;background:var(--mint)}
+.btn.go{background:var(--mint);flex:1}
+.btn.alt{background:var(--sun)}
+.btn.ghost{background:var(--card);color:var(--ink)}
+.record{text-align:center;margin:12px 0 0;font-weight:600;color:var(--muted)}
+.foot{text-align:center;color:var(--muted);font-size:.9rem;margin-top:10px}
+.corner{position:absolute;top:8px;right:8px}
+.round{width:46px;height:46px;border-radius:50%;border:3px solid var(--line);background:var(--card);box-shadow:0 4px 0 var(--line);font-size:1.3rem;padding:0;color:var(--ink)}
+.round:active{transform:translateY(3px);box-shadow:0 1px 0 var(--line)}
+
+/* juego */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.timer{
+  display:flex;align-items:center;gap:8px;padding:6px 18px;border-radius:999px;border:3px solid var(--line);
+  background:var(--sky);color:var(--on-bright);font-size:1.7rem;font-weight:700;box-shadow:0 5px 0 var(--line);
+  font-variant-numeric:tabular-nums;
+}
+.timer.low{background:var(--coral);animation:pulse .7s ease-in-out infinite}
+.timer.paused{background:var(--sun)}
+@keyframes pulse{50%{transform:scale(1.07)}}
+.stats{display:flex;gap:10px;justify-content:center;margin-bottom:10px}
+.stat{
+  flex:1;max-width:150px;text-align:center;background:var(--card);border:3px solid var(--line);border-radius:16px;
+  padding:4px 8px;font-weight:600;box-shadow:0 4px 0 var(--line);font-size:1.05rem;
+}
+.stat b{font-size:1.25rem}
+.progress{height:18px;border-radius:999px;background:var(--card);border:3px solid var(--line);overflow:hidden}
+.progress div{height:100%;width:0;background:repeating-linear-gradient(45deg,var(--mint),var(--mint) 12px,#52e3ad 12px,#52e3ad 24px);transition:width .3s}
+.qcount{text-align:center;margin:8px 0 14px;font-weight:600;color:var(--muted)}
+
+.qcard{
+  background:var(--card);border:3px solid var(--line);border-radius:30px;
+  box-shadow:0 8px 0 var(--line);padding:16px;transition:background .15s;
+}
+.qcard.good{background:var(--good-bg)}
+.qcard.bad{background:var(--bad-bg);animation:shake .4s}
+@keyframes shake{20%{transform:translateX(-10px)}40%{transform:translateX(9px)}60%{transform:translateX(-6px)}80%{transform:translateX(4px)}}
+.qhead{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.qhead .mascot{width:66px;flex:none}
+.qhead .ttl{flex:1;min-width:0}
+.tbadge{
+  display:inline-block;padding:3px 14px;border-radius:999px;border:3px solid var(--line);font-weight:700;font-size:1.05rem;color:var(--on-bright);
+  box-shadow:0 3px 0 var(--line);
+}
+.tbadge.t-mean{background:var(--sky)} .tbadge.t-median{background:var(--mint)} .tbadge.t-mode{background:var(--orange)}
+.qprompt{margin:6px 0 0;font-size:1.35rem;font-weight:700;line-height:1.2}
+.scen{margin:6px 0 10px;color:var(--muted);font-weight:500;line-height:1.35}
+.trayhead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;font-weight:700}
+.trayhead small{color:var(--muted);font-weight:500}
+.tray{
+  background:var(--soft);border:3px solid var(--line);border-radius:18px;padding:10px;
+  max-height:min(38vh,300px);overflow:auto;display:flex;flex-wrap:wrap;gap:7px;justify-content:center;
+}
+.chip{
+  min-width:3.1em;padding:4px 9px;border:2px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);
+  font-size:1.1rem;font-weight:700;font-variant-numeric:tabular-nums;box-shadow:0 3px 0 var(--line);
+}
+.chip:nth-child(4n+1){background:#e1f3ff}.chip:nth-child(4n+2){background:#e3fbef}.chip:nth-child(4n+3){background:#fff3d1}.chip:nth-child(4n){background:#f0e8ff}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .chip:nth-child(n){background:#34408f}
+}
+:root[data-theme="dark"] .chip:nth-child(n){background:#34408f}
+.chip{color:var(--ink)}
+.chip:nth-child(n){color:#1d2a5b}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .chip:nth-child(n){color:#f3f5ff} }
+:root[data-theme="dark"] .chip:nth-child(n){color:#f3f5ff}
+.chip.done{opacity:.35;text-decoration:line-through;box-shadow:none;transform:translateY(2px)}
+.tray .chip.hl:nth-child(n){background:var(--sun);color:var(--on-bright);transform:scale(1.12);box-shadow:0 3px 0 var(--line);opacity:1;text-decoration:none;animation:hlpop .5s}
+@keyframes hlpop{from{transform:scale(.7)}to{transform:scale(1.12)}}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 4px;justify-content:center}
+.tool{
+  padding:6px 14px;border:3px solid var(--line);border-radius:999px;background:var(--card);font-weight:600;font-size:.98rem;
+  box-shadow:0 3px 0 var(--line);color:var(--ink);
+}
+.tool[aria-pressed="true"]{background:var(--sun);color:var(--on-bright)}
+.tool:active{transform:translateY(2px);box-shadow:0 1px 0 var(--line)}
+.recallline{margin:8px 0 0;padding:8px 12px;border-radius:14px;background:var(--explain);border:2px dashed var(--line);font-weight:500;line-height:1.35}
+
+/* calculadora */
+.calc{margin:10px auto 0;max-width:330px;background:var(--soft);border:3px solid var(--line);border-radius:20px;padding:10px}
+.cdisp{background:var(--card);border:3px solid var(--line);border-radius:14px;padding:6px 12px;text-align:right;min-height:68px;overflow:hidden}
+.cexpr{font-size:1.5rem;font-weight:700;word-break:break-all;line-height:1.15;min-height:1.7rem}
+.cres{font-size:1.05rem;color:var(--muted);font-weight:600;min-height:1.3rem}
+.ckeys{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:8px}
+.ckeys button{
+  height:44px;border:3px solid var(--line);border-radius:12px;background:var(--card);font-size:1.25rem;font-weight:700;
+  box-shadow:0 3px 0 var(--line);padding:0;color:var(--ink);
+}
+.ckeys button:active{transform:translateY(2px);box-shadow:0 1px 0 var(--line)}
+.ckeys .op{background:var(--sun);color:var(--on-bright)}
+.ckeys .eq{background:var(--mint);color:var(--on-bright)}
+.ckeys .clr{background:var(--coral);color:var(--on-bright)}
+.cuse{width:100%;margin-top:8px;padding:8px;border:3px solid var(--line);border-radius:12px;background:var(--grape);color:#fff;font-weight:700;box-shadow:0 3px 0 var(--line)}
+
+.answerrow{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:14px}
+.answerrow .eq{font-size:2.6rem;font-weight:700}
+#answer{
+  width:min(220px,56vw);height:70px;font:inherit;font-size:2.4rem;font-weight:700;text-align:center;
+  border:4px solid var(--line);border-radius:22px;background:var(--soft);color:var(--ink);
+  box-shadow:inset 0 5px 0 rgba(0,0,0,.08);
+}
+#answer::placeholder{color:var(--muted);opacity:.5}
+.feedback{min-height:1.8em;margin:10px 0 2px;font-size:1.25rem;font-weight:700;text-align:center}
+.explain{margin:6px 0 4px;padding:10px 14px;border-radius:16px;background:var(--explain);border:3px solid var(--line);font-weight:500;line-height:1.4}
+.explain b{font-weight:700}
+.actions{display:flex;gap:12px;margin-top:10px}
+.actions .btn{flex:1}
+.actions .btn.ghost{flex:0 0 auto}
+
+/* resultados */
+.center{text-align:center}
+.center .mascot{width:130px;margin:0 auto}
+.center h2{justify-content:center;font-size:1.8rem;margin:6px 0 4px}
+.stars{font-size:3.2rem;letter-spacing:6px;margin:4px 0}
+.stars span{display:inline-block}
+.stars .on{animation:starpop .5s cubic-bezier(.3,1.6,.5,1) both}
+.stars .off{opacity:.3;filter:grayscale(1)}
+@keyframes starpop{from{transform:scale(0) rotate(-40deg)}to{transform:scale(1) rotate(0)}}
+.badge{
+  display:inline-block;margin:6px 0;padding:6px 16px;border-radius:999px;border:3px solid var(--line);
+  background:var(--sun);color:var(--on-bright);font-weight:700;box-shadow:0 4px 0 var(--line);
+}
+.gridstats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:14px 0}
+.gs{background:var(--soft);border:3px solid var(--line);border-radius:20px;padding:10px}
+.gs small{display:block;color:var(--muted);font-weight:600;font-size:.95rem}
+.gs b{font-size:1.9rem;font-variant-numeric:tabular-nums}
+.bytype{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:4px 0 10px}
+.bytype span{padding:4px 14px;border:3px solid var(--line);border-radius:999px;font-weight:700;color:var(--on-bright)}
+.bytype .t-mean{background:var(--sky)}.bytype .t-median{background:var(--mint)}.bytype .t-mode{background:var(--orange)}
+.review{text-align:left;margin-top:8px}
+.review h3{margin:0 0 8px;font-size:1.2rem}
+.review ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.review li{background:var(--bad-bg);border:3px solid var(--line);border-radius:14px;padding:8px 12px;font-weight:600;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.review li span{color:var(--muted);font-weight:500}
+
+/* confeti */
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:50;overflow:hidden}
+#confetti i{position:absolute;width:11px;height:16px;border-radius:3px;animation:conf 1.1s ease-out forwards}
+@keyframes conf{
+  0%{transform:translate(0,0) rotate(0);opacity:1}
+  100%{transform:translate(var(--dx),var(--dy)) rotate(var(--rot));opacity:0}
+}
+
+@media (max-width:420px){
+  .card{padding:14px}
+  .qcard{padding:12px}
+  .stepper button{min-width:38px;height:38px}
+  .stepper output{font-size:1.8rem}
+  #answer{height:62px;font-size:2.1rem}
+}
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div class="bubbles" id="bubbles" aria-hidden="true"></div>
+<div id="confetti" aria-hidden="true"></div>
+
+<main class="app">
+
+  <!-- MENÚ -->
+  <section id="menu">
+    <header class="hero">
+      <button class="round corner sndBtn" type="button" aria-label="Activar o silenciar sonido" title="Sonido">🔊</button>
+      <div class="mwrap"><div class="mascot" data-mood="think"></div><span class="lens" aria-hidden="true">🔍</span></div>
+      <h1>Detectives de Datos</h1>
+      <p>Media, mediana y moda: ¡cada dato cuenta!</p>
+    </header>
+
+    <details class="card recall">
+      <summary>📚 Repaso rápido antes de jugar</summary>
+      <div class="body">
+        <div class="def t-mean"><b>📊 Media (promedio)</b>Suma todos los datos y divide entre la cantidad de datos.</div>
+        <div class="def t-median"><b>🎯 Mediana</b>Ordena los datos de menor a mayor. Si la cantidad es impar, es el dato del centro. Si es par, es el promedio de los dos datos del centro.</div>
+        <div class="def t-mode"><b>🏅 Moda</b>Es el dato que más veces se repite.</div>
+      </div>
+    </details>
+
+    <div class="card">
+      <h2><span class="n">1</span>¿Qué quieres calcular?</h2>
+      <div class="row" id="typeRow">
+        <button class="opt big" type="button" data-type="mean" aria-pressed="false"><span class="ico">📊</span>Media</button>
+        <button class="opt big" type="button" data-type="median" aria-pressed="false"><span class="ico">🎯</span>Mediana</button>
+        <button class="opt big" type="button" data-type="mode" aria-pressed="false"><span class="ico">🏅</span>Moda</button>
+        <button class="opt big" type="button" data-type="all" aria-pressed="true"><span class="ico">🎲</span>Las tres</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">2</span>Elige el tamaño de las listas</h2>
+      <div class="ranges">
+        <div class="field">
+          <label id="lblMin">Cada lista tendrá desde</label>
+          <div class="stepper" data-key="nMin" role="group" aria-labelledby="lblMin">
+            <button type="button" data-d="-5" aria-label="Quitar 5 datos">−5</button>
+            <button type="button" data-d="-1" aria-label="Quitar 1 dato">−1</button>
+            <output id="outMin" aria-live="polite">25</output>
+            <button type="button" data-d="1" aria-label="Agregar 1 dato">+1</button>
+            <button type="button" data-d="5" aria-label="Agregar 5 datos">+5</button>
+          </div>
+        </div>
+        <div class="field">
+          <label id="lblMax">hasta</label>
+          <div class="stepper" data-key="nMax" role="group" aria-labelledby="lblMax">
+            <button type="button" data-d="-5" aria-label="Quitar 5 datos">−5</button>
+            <button type="button" data-d="-1" aria-label="Quitar 1 dato">−1</button>
+            <output id="outMax" aria-live="polite">35</output>
+            <button type="button" data-d="1" aria-label="Agregar 1 dato">+1</button>
+            <button type="button" data-d="5" aria-label="Agregar 5 datos">+5</button>
+          </div>
+        </div>
+      </div>
+      <p class="sub">O elige un tamaño listo:</p>
+      <div class="row" id="presetRow">
+        <button class="opt preset" type="button" data-f="9" data-t="13" aria-pressed="false">🌱 Corto (9 a 13)</button>
+        <button class="opt preset" type="button" data-f="15" data-t="21" aria-pressed="false">🚀 Mediano (15 a 21)</button>
+        <button class="opt preset" type="button" data-f="25" data-t="35" aria-pressed="false">🔥 Largo (25 a 35)</button>
+        <button class="opt preset" type="button" data-f="40" data-t="60" aria-pressed="false">🏆 Muy largo (40 a 60)</button>
+      </div>
+      <p class="sub">Tamaño de los números:</p>
+      <div class="row" id="magRow">
+        <button class="opt" type="button" data-mag="small" aria-pressed="false">Pequeños<br><small>5 a 50</small></button>
+        <button class="opt" type="button" data-mag="mid" aria-pressed="true">Medianos<br><small>50 a 500</small></button>
+        <button class="opt" type="button" data-mag="big" aria-pressed="false">Grandes<br><small>500 a 5000</small></button>
+        <button class="opt" type="button" data-mag="mix" aria-pressed="false">Mezclados<br><small>de todo</small></button>
+      </div>
+      <p class="hint" id="hint"></p>
+    </div>
+
+    <div class="card">
+      <h2><span class="n">3</span>Preguntas, tiempo y ayudas</h2>
+      <p class="sub" style="margin-top:0">Cantidad de preguntas</p>
+      <div class="row" id="countRow">
+        <button class="opt sm" type="button" data-count="3" aria-pressed="false">3</button>
+        <button class="opt sm" type="button" data-count="5" aria-pressed="true">5</button>
+        <button class="opt sm" type="button" data-count="8" aria-pressed="false">8</button>
+        <button class="opt sm" type="button" data-count="10" aria-pressed="false">10</button>
+      </div>
+      <p class="sub">Cronómetro</p>
+      <div class="row" id="timeRow">
+        <button class="opt" type="button" data-time="0" aria-pressed="true">⏱️ Libre</button>
+        <button class="opt" type="button" data-time="300" aria-pressed="false">⏳ 5 min</button>
+        <button class="opt" type="button" data-time="600" aria-pressed="false">⏳ 10 min</button>
+        <button class="opt" type="button" data-time="900" aria-pressed="false">⏳ 15 min</button>
+      </div>
+      <p class="note" id="timeNote"></p>
+      <p class="sub">Ayudas durante el juego</p>
+      <div class="row" id="helpRow">
+        <button class="opt" type="button" data-help="calc" aria-pressed="true">🧮 Calculadora</button>
+        <button class="opt" type="button" data-help="sort" aria-pressed="true">↕️ Ordenar datos</button>
+      </div>
+      <p class="note">Ordenar datos resta 5 puntos en esa pregunta. Si desactivas una ayuda, el juego no la mostrará.</p>
+    </div>
+
+    <button class="btn play" id="btnPlay" type="button">¡Jugar!</button>
+    <p class="record" id="record"></p>
+    <p class="foot">Matemática · I.E. “Fermín del Castillo Arias”, Nasca</p>
+  </section>
+
+  <!-- JUEGO -->
+  <section id="game" class="hidden">
+    <div class="topbar">
+      <button class="round" id="btnQuit" type="button" aria-label="Salir al menú" title="Salir">🏠</button>
+      <div class="timer" id="timer" role="timer" aria-label="Cronómetro"><span id="timeIcon" aria-hidden="true">⏱️</span><span id="timeText">00:00</span></div>
+      <button class="round sndBtn" type="button" aria-label="Activar o silenciar sonido" title="Sonido">🔊</button>
+    </div>
+    <div class="stats">
+      <div class="stat">⭐ <b id="score">0</b></div>
+      <div class="stat">🔥 <b id="streak">0</b></div>
+      <div class="stat">✅ <b id="okCount">0</b></div>
+    </div>
+    <div class="progress" aria-hidden="true"><div id="bar"></div></div>
+    <div class="qcount" id="qcount">Pregunta 1 de 5</div>
+
+    <div class="qcard" id="qcard">
+      <div class="qhead">
+        <div class="mascot" id="gameMascot" data-mood="think"></div>
+        <div class="ttl">
+          <span class="tbadge t-mean" id="tbadge">📊 Media</span>
+          <div class="qprompt" id="qprompt">Calcula la media.</div>
+        </div>
+      </div>
+      <p class="scen" id="scen"></p>
+
+      <div class="trayhead"><span id="trayTitle">📋 Datos</span><small>Toca un dato para tacharlo</small></div>
+      <div class="tray" id="tray" role="group" aria-label="Lista de datos"></div>
+
+      <div class="tools">
+        <button class="tool" id="btnSort" type="button" aria-pressed="false">↕️ Ordenar (−5)</button>
+        <button class="tool" id="btnCalc" type="button" aria-pressed="false">🧮 Calculadora</button>
+        <button class="tool" id="btnTip" type="button" aria-pressed="false">💡 Recuerda</button>
+      </div>
+      <div class="recallline hidden" id="recallLine"></div>
+
+      <div class="calc hidden" id="calcBox">
+        <div class="cdisp"><div class="cexpr" id="cExpr">0</div><div class="cres" id="cRes"></div></div>
+        <div class="ckeys" id="cKeys">
+          <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" class="op" data-k="÷">÷</button>
+          <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" class="op" data-k="×">×</button>
+          <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" class="op" data-k="−">−</button>
+          <button type="button" data-k="0">0</button><button type="button" data-k=".">.</button><button type="button" class="eq" data-k="=">=</button><button type="button" class="op" data-k="+">+</button>
+          <button type="button" class="clr" data-k="C">C</button><button type="button" class="clr" data-k="⌫" aria-label="Borrar">⌫</button><button type="button" data-k="(">(</button><button type="button" data-k=")">)</button>
+        </div>
+        <button class="cuse" id="cUse" type="button">Pasar resultado a mi respuesta</button>
+      </div>
+
+      <div class="answerrow">
+        <span class="eq" aria-hidden="true">=</span>
+        <input id="answer" type="text" inputmode="decimal" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="9" placeholder="?" aria-label="Tu respuesta">
+      </div>
+      <div class="feedback" id="feedback" aria-live="assertive"></div>
+      <div class="explain hidden" id="explain"></div>
+      <div class="actions">
+        <button class="btn ghost" id="btnSkip" type="button">Saltar</button>
+        <button class="btn go" id="btnGo" type="button">¡Responder!</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- RESULTADOS -->
+  <section id="result" class="hidden">
+    <div class="card center">
+      <div class="mascot" id="resMascot" data-mood="cheer"></div>
+      <h2 id="resTitle">¡Terminaste!</h2>
+      <div class="stars" id="resStars" aria-live="polite"></div>
+      <div class="badge hidden" id="resRecord">🏆 ¡Nuevo récord!</div>
+      <div class="gridstats">
+        <div class="gs"><small>Puntaje</small><b id="rScore">0</b></div>
+        <div class="gs"><small>Aciertos</small><b id="rOk">0/0</b></div>
+        <div class="gs"><small>Tiempo total</small><b id="rTime">0:00</b></div>
+        <div class="gs"><small>Tiempo por pregunta</small><b id="rAvg">0:00</b></div>
+      </div>
+      <div class="bytype" id="byType"></div>
+      <div class="review hidden" id="review">
+        <h3>📝 Para repasar</h3>
+        <ul id="reviewList"></ul>
+      </div>
+      <div class="actions" style="margin-top:18px">
+        <button class="btn alt" id="btnAgain" type="button">🔁 Jugar otra vez</button>
+        <button class="btn ghost" id="btnMenu" type="button">⚙️ Cambiar opciones</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+'use strict';
+var $ = function(s){ return document.querySelector(s); };
+var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------- Mascota ---------- */
+var MASCOT_SVG =
+ '<svg viewBox="0 0 120 140" role="img" aria-label="Gotita, la mascota">' +
+ '<path d="M60 8C60 8 14 62 14 94a46 46 0 0 0 92 0C106 62 60 8 60 8Z" fill="#2e9bff" stroke="#1d2a5b" stroke-width="5" stroke-linejoin="round"/>' +
+ '<path d="M32 88c0-12 6-24 14-35" stroke="#fff" stroke-width="7" stroke-linecap="round" fill="none" opacity=".8"/>' +
+ '<circle cx="45" cy="94" r="7.5" fill="#1d2a5b"/><circle cx="75" cy="94" r="7.5" fill="#1d2a5b"/>' +
+ '<circle cx="47.5" cy="91.5" r="2.6" fill="#fff"/><circle cx="77.5" cy="91.5" r="2.6" fill="#fff"/>' +
+ '<ellipse cx="31" cy="108" rx="8" ry="5" fill="#ff8fa3" opacity=".9"/><ellipse cx="89" cy="108" rx="8" ry="5" fill="#ff8fa3" opacity=".9"/>' +
+ '<path data-m="happy" d="M47 109Q60 123 73 109" stroke="#1d2a5b" stroke-width="5" stroke-linecap="round" fill="none"/>' +
+ '<path data-m="cheer" d="M44 106Q60 136 76 106Z" fill="#ff5d73" stroke="#1d2a5b" stroke-width="5" stroke-linejoin="round"/>' +
+ '<path data-m="sad" d="M49 120Q60 106 71 120" stroke="#1d2a5b" stroke-width="5" stroke-linecap="round" fill="none"/>' +
+ '<path data-m="think" d="M51 114H69" stroke="#1d2a5b" stroke-width="5" stroke-linecap="round" fill="none"/>' +
+ '</svg>';
+$$('.mascot').forEach(function(m){ m.innerHTML = MASCOT_SVG; });
+
+/* ---------- Burbujas de fondo ---------- */
+(function(){
+  var box = $('#bubbles');
+  var glyphs = ['x̄','Me','Mo','1250','348','=','Σ','17','905','💧','n','÷'];
+  for(var i=0;i<16;i++){
+    var d = document.createElement('div');
+    d.className = 'b';
+    var size = 36 + Math.random()*64;
+    d.style.width = d.style.height = size + 'px';
+    d.style.left = (Math.random()*96) + '%';
+    d.style.fontSize = (size*0.34) + 'px';
+    d.style.animationDuration = (16 + Math.random()*20) + 's';
+    d.style.animationDelay = (-Math.random()*30) + 's';
+    d.textContent = glyphs[i % glyphs.length];
+    box.appendChild(d);
+  }
+})();
+
+/* ---------- Sonido ---------- */
+var actx = null, soundOn = true;
+function initAudio(){
+  if(actx) return;
+  try{ var AC = window.AudioContext || window.webkitAudioContext; if(AC) actx = new AC(); }catch(e){ actx = null; }
+}
+function tone(freq, start, dur, type, vol){
+  if(!soundOn || !actx) return;
+  try{
+    var o = actx.createOscillator(), g = actx.createGain();
+    o.type = type || 'sine'; o.frequency.value = freq;
+    var t0 = actx.currentTime + start;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(vol || 0.18, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  }catch(e){}
+}
+var sfx = {
+  ok: function(){ tone(660,0,.14,'triangle'); tone(880,.1,.2,'triangle'); },
+  bad: function(){ tone(260,0,.18,'sawtooth',.1); tone(190,.14,.28,'sawtooth',.1); },
+  win: function(){ [523,659,784,1046].forEach(function(f,i){ tone(f,i*.12,.25,'triangle'); }); },
+  tick: function(){ tone(900,0,.06,'square',.06); },
+  key: function(){ tone(520,0,.04,'square',.04); }
+};
+$$('.sndBtn').forEach(function(b){
+  b.addEventListener('click', function(){
+    soundOn = !soundOn;
+    $$('.sndBtn').forEach(function(x){ x.textContent = soundOn ? '🔊' : '🔇'; });
+    if(soundOn){ initAudio(); sfx.ok(); }
+  });
+});
+
+/* ---------- Confeti ---------- */
+var COLORS = ['#ff5d73','#ffd23f','#2fd39a','#2e9bff','#8b5cf6','#ff9f1c'];
+function burst(n, x, y, spread){
+  if(reduceMotion) return;
+  var box = $('#confetti');
+  for(var i=0;i<n;i++){
+    var p = document.createElement('i');
+    p.style.left = x + 'px'; p.style.top = y + 'px';
+    p.style.background = COLORS[(Math.random()*COLORS.length)|0];
+    p.style.setProperty('--dx', ((Math.random()-.5)*spread*2) + 'px');
+    p.style.setProperty('--dy', ((Math.random()-.75)*spread*1.6) + 'px');
+    p.style.setProperty('--rot', ((Math.random()-.5)*900) + 'deg');
+    p.style.animationDuration = (0.8 + Math.random()*0.7) + 's';
+    p.addEventListener('animationend', function(){ if(this.parentNode) this.parentNode.removeChild(this); });
+    box.appendChild(p);
+  }
+}
+function rain(n){
+  if(reduceMotion) return;
+  var box = $('#confetti'), w = window.innerWidth, h = window.innerHeight;
+  for(var i=0;i<n;i++){
+    var p = document.createElement('i');
+    p.style.left = (Math.random()*w) + 'px'; p.style.top = '-20px';
+    p.style.background = COLORS[(Math.random()*COLORS.length)|0];
+    p.style.setProperty('--dx', ((Math.random()-.5)*160) + 'px');
+    p.style.setProperty('--dy', (h*0.7 + Math.random()*h*0.4) + 'px');
+    p.style.setProperty('--rot', ((Math.random()-.5)*1100) + 'deg');
+    p.style.animationDuration = (1.6 + Math.random()*1.4) + 's';
+    p.style.animationDelay = (Math.random()*0.6) + 's';
+    p.addEventListener('animationend', function(){ if(this.parentNode) this.parentNode.removeChild(this); });
+    box.appendChild(p);
+  }
+}
+
+/* ---------- Datos del juego ---------- */
+var TYPES = {
+  mean:   { icon:'📊', name:'Media',   prompt:'Calcula la media (promedio) de los datos.',
+            recall:'Media = suma de todos los datos ÷ cantidad de datos.' },
+  median: { icon:'🎯', name:'Mediana', prompt:'Calcula la mediana de los datos.',
+            recall:'Ordena de menor a mayor. Si hay una cantidad impar de datos, es el dato del centro. Si es par, promedia los dos datos del centro.' },
+  mode:   { icon:'🏅', name:'Moda',    prompt:'Halla la moda: el dato que más se repite.',
+            recall:'La moda es el dato con mayor frecuencia, es decir, el que aparece más veces en la lista.' }
+};
+var MAG = { small:{lo:5,hi:50}, mid:{lo:50,hi:500}, big:{lo:500,hi:5000} };
+var SCEN = {
+  small:[
+    'Minutos que dura la ducha de cada estudiante de 2.° (minutos).',
+    'Botellas de plástico recicladas por cada estudiante durante el mes (botellas).',
+    'Plantas regadas por cada brigadista ambiental en una semana (plantas).',
+    'Litros de agua que usa cada familia de Vista Alegre para lavar los platos en un día (litros).'
+  ],
+  mid:[
+    'Litros de agua que consume cada familia de Vista Alegre en un día (litros).',
+    'Kilogramos de residuos sólidos recolectados por cada aula de la I.E. en el semestre (kg).',
+    'Metros cuadrados de áreas verdes regadas por cada cuadrilla de la comunidad (m²).',
+    'Litros de agua que ahorró cada familia durante el mes con la campaña “Cada gota cuenta” (litros).'
+  ],
+  big:[
+    'Litros de agua que consume cada familia de Nasca en un mes (litros).',
+    'Soles recaudados en cada campaña de reciclaje de la provincia (S/).',
+    'Litros de agua que entregó cada cisterna a la comunidad durante el año (litros).',
+    'Metros cuadrados de cultivo que riega cada agricultor del valle de Nasca (m²).'
+  ]
+};
+
+function randInt(a,b){ return a + Math.floor(Math.random()*(b-a+1)); }
+function tri(lo,hi){ return lo + Math.round((Math.random()+Math.random())/2*(hi-lo)); }
+function add(a,b){ return a+b; }
+function shuffle(a){
+  for(var i=a.length-1;i>0;i--){ var j = (Math.random()*(i+1))|0; var t=a[i]; a[i]=a[j]; a[j]=t; }
+  return a;
+}
+function fmtNum(x){
+  var r = Math.round(x*1000)/1000;
+  return String(r).replace('.',',');
+}
+
+function genMean(n, lo, hi){
+  var v = [], i;
+  for(i=0;i<n;i++) v.push(tri(lo,hi));
+  var d = v.reduce(add,0) % n;
+  var idx = shuffle(v.map(function(_,k){ return k; }));
+  for(var k=0;k<idx.length && d>0;k++){
+    if(v[idx[k]] > lo){ v[idx[k]]--; d--; }
+  }
+  var sum = v.reduce(add,0), ans = sum/n;
+  return { data:v, ans:ans,
+    explain:'Suma de los <b>'+n+'</b> datos = <b>'+sum+'</b>. Media = '+sum+' ÷ '+n+' = <b>'+fmtNum(ans)+'</b>.' };
+}
+function genMedian(n, lo, hi){
+  var s = [], i;
+  for(i=0;i<n;i++) s.push(tri(lo,hi));
+  s.sort(function(a,b){ return a-b; });
+  var mids, ans, explain;
+  if(n % 2 === 1){
+    var m = (n-1)/2;
+    mids = [m]; ans = s[m];
+    explain = 'Ordenados de menor a mayor, el dato central es el de la posición <b>'+(m+1)+'</b> (hay '+n+' datos). Mediana = <b>'+fmtNum(ans)+'</b>.';
+  }else{
+    var h = n/2, a = s[h-1], b = s[h];
+    if(Math.random() < 0.65 && (a+b) % 2 !== 0){
+      var up = (h+1 < n) ? s[h+1] : hi, dn = (h-2 >= 0) ? s[h-2] : lo;
+      if(b+1 <= up){ b++; s[h] = b; }
+      else if(a-1 >= dn){ a--; s[h-1] = a; }
+      else if(a+1 <= b){ a++; s[h-1] = a; }
+      else if(b-1 >= a){ b--; s[h] = b; }
+    }
+    mids = [h-1, h]; ans = (a+b)/2;
+    explain = 'Hay <b>'+n+'</b> datos (cantidad par), así que se promedian los dos del centro (posiciones '+h+' y '+(h+1)+'): <b>'+a+'</b> y <b>'+b+'</b>. Mediana = ('+a+' + '+b+') ÷ 2 = <b>'+fmtNum(ans)+'</b>.';
+  }
+  return { sorted:s.slice(), data:shuffle(s.slice()), ans:ans, mids:mids, explain:explain };
+}
+function genMode(n, lo, hi){
+  var f = Math.max(3, Math.round(n*0.2));
+  var mode = randInt(lo,hi), counts = {}, arr = [], i;
+  counts[mode] = f;
+  for(i=0;i<f;i++) arr.push(mode);
+  var remaining = n - f, dist = null;
+  if(remaining >= f-1 && Math.random() < 0.7){
+    do{ dist = randInt(lo,hi); }while(dist === mode);
+    counts[dist] = f-1;
+    for(i=0;i<f-1;i++) arr.push(dist);
+    remaining -= (f-1);
+  }
+  var pool = [], k = Math.max(2, Math.ceil(remaining/2)), v;
+  while(pool.length < k){
+    v = randInt(lo,hi);
+    if(v !== mode && v !== dist && pool.indexOf(v) < 0) pool.push(v);
+  }
+  var guard = 0;
+  while(remaining > 0 && guard++ < 6000){
+    v = pool[randInt(0,pool.length-1)];
+    if((counts[v]||0) < f-1){ counts[v] = (counts[v]||0)+1; arr.push(v); remaining--; }
+  }
+  var second = 0;
+  Object.keys(counts).forEach(function(key){ if(+key !== mode && counts[key] > second) second = counts[key]; });
+  return { data:shuffle(arr), ans:mode, modeVal:mode,
+    explain:'El valor <b>'+mode+'</b> aparece <b>'+f+'</b> veces; ningún otro aparece más de '+second+' veces. Moda = <b>'+mode+'</b>.' };
+}
+
+/* ---------- Configuración (menú) ---------- */
+var S = { type:'all', nMin:25, nMax:35, mag:'mid', count:5, time:0, calc:true, sort:true };
+var LIM = { nMin:[5,60], nMax:[5,60] };
+
+function setVal(key, v){
+  v = Math.max(LIM[key][0], Math.min(LIM[key][1], v));
+  S[key] = v;
+  if(key === 'nMin' && S.nMax < S.nMin) S.nMax = S.nMin;
+  if(key === 'nMax' && S.nMin > S.nMax) S.nMin = S.nMax;
+  renderMenu();
+}
+$$('.stepper').forEach(function(st){
+  st.addEventListener('click', function(e){
+    var b = e.target.closest('button');
+    if(!b || b.disabled) return;
+    var key = st.getAttribute('data-key');
+    setVal(key, S[key] + parseInt(b.getAttribute('data-d'), 10));
+  });
+});
+function bindRow(id, attr, fn){
+  $(id).addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;
+    fn(b.getAttribute(attr), b); renderMenu();
+  });
+}
+bindRow('#typeRow','data-type',function(v){ S.type = v; });
+bindRow('#countRow','data-count',function(v){ S.count = parseInt(v,10); });
+bindRow('#timeRow','data-time',function(v){ S.time = parseInt(v,10); });
+bindRow('#magRow','data-mag',function(v){ S.mag = v; });
+bindRow('#helpRow','data-help',function(v){ S[v] = !S[v]; });
+$('#presetRow').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  S.nMin = parseInt(b.getAttribute('data-f'),10);
+  S.nMax = parseInt(b.getAttribute('data-t'),10);
+  renderMenu();
+});
+
+/* Récords (si el navegador no permite guardar, el juego sigue igual) */
+var bests = {};
+try{ bests = JSON.parse(localStorage.getItem('detectives-records') || '{}') || {}; }catch(e){ bests = {}; }
+function cfgKey(){ return [S.type,S.nMin,S.nMax,S.mag,S.count,S.time,S.calc?1:0,S.sort?1:0].join('-'); }
+function saveBest(score){
+  var k = cfgKey();
+  if(score > (bests[k]||0)){
+    bests[k] = score;
+    try{ localStorage.setItem('detectives-records', JSON.stringify(bests)); }catch(e){}
+  }
+}
+function magText(){
+  if(S.mag === 'mix') return 'de distintos tamaños (5 a 5000)';
+  return 'de ' + MAG[S.mag].lo + ' a ' + MAG[S.mag].hi;
+}
+function renderMenu(){
+  $$('#typeRow .opt').forEach(function(b){ b.setAttribute('aria-pressed', String(b.getAttribute('data-type') === S.type)); });
+  $$('#countRow .opt').forEach(function(b){ b.setAttribute('aria-pressed', String(parseInt(b.getAttribute('data-count'),10) === S.count)); });
+  $$('#timeRow .opt').forEach(function(b){ b.setAttribute('aria-pressed', String(parseInt(b.getAttribute('data-time'),10) === S.time)); });
+  $$('#magRow .opt').forEach(function(b){ b.setAttribute('aria-pressed', String(b.getAttribute('data-mag') === S.mag)); });
+  $$('#helpRow .opt').forEach(function(b){ b.setAttribute('aria-pressed', String(!!S[b.getAttribute('data-help')])); });
+  $$('#presetRow .opt').forEach(function(b){
+    b.setAttribute('aria-pressed', String(parseInt(b.getAttribute('data-f'),10) === S.nMin && parseInt(b.getAttribute('data-t'),10) === S.nMax));
+  });
+  $('#outMin').textContent = S.nMin;
+  $('#outMax').textContent = S.nMax;
+  $$('.stepper').forEach(function(st){
+    var key = st.getAttribute('data-key');
+    Array.prototype.slice.call(st.querySelectorAll('button')).forEach(function(b){
+      var t = S[key] + parseInt(b.getAttribute('data-d'),10);
+      b.disabled = t < LIM[key][0] || t > LIM[key][1];
+    });
+  });
+  var cant = S.nMin === S.nMax ? 'exactamente <b>' + S.nMin + '</b> datos' : 'entre <b>' + S.nMin + '</b> y <b>' + S.nMax + '</b> datos';
+  $('#hint').innerHTML = 'Cada lista tendrá ' + cant + ', con números <b>' + magText() + '</b>.';
+  $('#timeNote').textContent = S.time === 0
+    ? 'El cronómetro cuenta hacia arriba hasta que termines todas las preguntas.'
+    : 'Cuenta regresiva: si se acaba el tiempo, el juego termina con lo que lograste. El tiempo se detiene mientras lees una explicación.';
+  var rec = bests[cfgKey()];
+  $('#record').textContent = rec ? '🏆 Tu mejor puntaje con esta configuración: ' + rec : 'Juega para marcar tu primer récord con esta configuración.';
+}
+
+/* ---------- Calculadora ---------- */
+var calc = { expr:'' };
+function calcEval(str){
+  var s = str.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-').replace(/\s/g,'');
+  var i = 0;
+  function peek(){ return s.charAt(i); }
+  function num(){
+    var st = i;
+    while(i < s.length && /[0-9.]/.test(s.charAt(i))) i++;
+    if(st === i) throw new Error('num');
+    var v = parseFloat(s.slice(st,i));
+    if(isNaN(v)) throw new Error('num');
+    return v;
+  }
+  function factor(){
+    if(peek() === '-'){ i++; return -factor(); }
+    if(peek() === '('){ i++; var v = expr(); if(peek() !== ')') throw new Error('par'); i++; return v; }
+    return num();
+  }
+  function term(){
+    var v = factor();
+    while(peek() === '*' || peek() === '/'){ var o = s.charAt(i++); var r = factor(); v = (o === '*') ? v*r : v/r; }
+    return v;
+  }
+  function expr(){
+    var v = term();
+    while(peek() === '+' || peek() === '-'){ var o = s.charAt(i++); var r = term(); v = (o === '+') ? v+r : v-r; }
+    return v;
+  }
+  var res = expr();
+  if(i !== s.length) throw new Error('end');
+  return res;
+}
+function r6(v){ return Math.round(v*1e6)/1e6; }
+function updateCalc(){
+  $('#cExpr').textContent = calc.expr || '0';
+  var out = '';
+  if(/[+\−×÷]/.test(calc.expr.slice(1))){
+    try{ var v = calcEval(calc.expr); if(isFinite(v)) out = '= ' + String(r6(v)).replace('.',','); }catch(e){ out = ''; }
+  }
+  $('#cRes').textContent = out;
+}
+function calcPress(k){
+  if(k === 'C') calc.expr = '';
+  else if(k === '⌫') calc.expr = calc.expr.slice(0,-1);
+  else if(k === '='){
+    try{ var v = calcEval(calc.expr); calc.expr = isFinite(v) ? String(r6(v)) : ''; }
+    catch(e){ if(calc.expr) { $('#cRes').textContent = 'Revisa la operación'; return; } }
+  }else{
+    if(calc.expr.length < 80) calc.expr += k;
+  }
+  sfx.key();
+  updateCalc();
+}
+$('#cKeys').addEventListener('click', function(e){
+  var b = e.target.closest('button'); if(!b) return;
+  calcPress(b.getAttribute('data-k'));
+});
+$('#cUse').addEventListener('click', function(){
+  if(!G || G.locked) return;
+  try{
+    var v = calcEval(calc.expr);
+    if(isFinite(v)){
+      $('#answer').value = String(r6(v)).replace('.',',').slice(0,9);
+      $('#answer').focus();
+    }
+  }catch(e){ $('#cRes').textContent = 'Calcula primero un resultado'; }
+});
+
+/* ---------- Lógica del juego ---------- */
+var G = null;
+var PRAISE = ['¡Exacto!','¡Genial!','¡Eso es!','¡Detective de primera!','¡Perfecto!','¡Así se hace!','¡Datos dominados!'];
+var ENCOURAGE = ['Casi, ¡tú puedes!','No pasa nada, sigue.','Cada error enseña.','Mira la pista y a seguir.'];
+
+function buildQuestions(){
+  var types = [], i;
+  if(S.type === 'all'){
+    var base = ['mean','median','mode'];
+    while(types.length < S.count){ types = types.concat(shuffle(base.slice())); }
+    types = types.slice(0, S.count);
+  }else{
+    for(i=0;i<S.count;i++) types.push(S.type);
+  }
+  return types.map(function(t){
+    var mag = S.mag === 'mix' ? ['small','mid','big'][randInt(0,2)] : S.mag;
+    var lo = MAG[mag].lo, hi = MAG[mag].hi;
+    var n = randInt(S.nMin, S.nMax);
+    var g = t === 'mean' ? genMean(n,lo,hi) : t === 'median' ? genMedian(n,lo,hi) : genMode(n,lo,hi);
+    g.type = t; g.n = n;
+    g.scenario = SCEN[mag][randInt(0, SCEN[mag].length-1)];
+    if(!g.sorted) g.sorted = g.data.slice().sort(function(a,b){ return a-b; });
+    return g;
+  });
+}
+
+function fmt(sec){
+  sec = Math.max(0, Math.floor(sec));
+  var m = Math.floor(sec/60), s = sec%60;
+  return (m<10?'0':'') + m + ':' + (s<10?'0':'') + s;
+}
+function fmtShort(sec){
+  sec = Math.max(0, Math.round(sec));
+  return Math.floor(sec/60) + ':' + ((sec%60)<10?'0':'') + (sec%60);
+}
+function show(id){
+  ['menu','game','result'].forEach(function(s){ $('#'+s).classList.toggle('hidden', s !== id); });
+  window.scrollTo(0,0);
+}
+function setMood(el, m){ el.setAttribute('data-mood', m); }
+
+function startGame(){
+  initAudio();
+  G = {
+    qs: buildQuestions(), i: 0, score: 0, streak: 0, best: 0, ok: 0, answered: 0,
+    mistakes: [], start: Date.now(), qStart: Date.now(), limit: S.time,
+    tickId: null, nextId: null, locked: false, over: false, lastShown: -1,
+    pausedAt: null, review: false, view: 'orig', marks: {orig:{},sorted:{}}, usedSort: false, revealed: false,
+    byType: { mean:{ok:0,t:0}, median:{ok:0,t:0}, mode:{ok:0,t:0} }
+  };
+  calc.expr = '';
+  $('#score').textContent = 0; $('#streak').textContent = 0; $('#okCount').textContent = 0;
+  $('#timeIcon').textContent = S.time ? '⏳' : '⏱️';
+  $('#timeText').textContent = fmt(S.time || 0);
+  $('#timer').classList.remove('low','paused');
+  $('#btnSort').classList.toggle('hidden', !S.sort);
+  $('#btnCalc').classList.toggle('hidden', !S.calc);
+  $('#calcBox').classList.add('hidden');
+  $('#btnCalc').setAttribute('aria-pressed','false');
+  show('game');
+  showQuestion();
+  G.tickId = setInterval(tick, 200);
+}
+function elapsed(){ return ((G.pausedAt || Date.now()) - G.start) / 1000; }
+function tick(){
+  if(!G || G.over || G.pausedAt) return;
+  var e = elapsed();
+  if(G.limit){
+    var left = G.limit - e;
+    if(left <= 0){ $('#timeText').textContent = fmt(0); finish('time'); return; }
+    var shown = Math.ceil(left);
+    $('#timeText').textContent = fmt(shown);
+    var low = left <= 10;
+    $('#timer').classList.toggle('low', low);
+    if(low && shown !== G.lastShown){ sfx.tick(); }
+    G.lastShown = shown;
+  }else{
+    $('#timeText').textContent = fmt(e);
+  }
+}
+
+function isHl(q, idx, v){
+  if(!G.revealed) return false;
+  if(q.type === 'median') return G.view === 'sorted' && q.mids.indexOf(idx) >= 0;
+  if(q.type === 'mode') return v === q.modeVal;
+  return false;
+}
+function renderTray(){
+  var q = G.qs[G.i], tray = $('#tray');
+  tray.innerHTML = '';
+  var arr = G.view === 'sorted' ? q.sorted : q.data;
+  var marks = G.marks[G.view];
+  arr.forEach(function(v, idx){
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (marks[idx] ? ' done' : '') + (isHl(q, idx, v) ? ' hl' : '');
+    b.textContent = v;
+    b.setAttribute('data-i', idx);
+    b.setAttribute('aria-pressed', marks[idx] ? 'true' : 'false');
+    tray.appendChild(b);
+  });
+  tray.scrollTop = 0;
+  $('#btnSort').textContent = G.view === 'sorted' ? '↩️ Ver como estaban' : (G.usedSort ? '↕️ Ordenar' : '↕️ Ordenar (−5)');
+  $('#btnSort').setAttribute('aria-pressed', String(G.view === 'sorted'));
+}
+$('#tray').addEventListener('click', function(e){
+  var b = e.target.closest('.chip'); if(!b || !G) return;
+  var i = b.getAttribute('data-i');
+  var m = G.marks[G.view];
+  m[i] = !m[i];
+  b.classList.toggle('done', !!m[i]);
+  b.setAttribute('aria-pressed', m[i] ? 'true' : 'false');
+});
+$('#btnSort').addEventListener('click', function(){
+  if(!G || G.over) return;
+  if(G.view === 'orig'){ G.view = 'sorted'; G.usedSort = true; }
+  else { G.view = 'orig'; }
+  renderTray();
+});
+$('#btnCalc').addEventListener('click', function(){
+  var box = $('#calcBox'), open = box.classList.contains('hidden');
+  box.classList.toggle('hidden', !open);
+  this.setAttribute('aria-pressed', String(open));
+  if(open) updateCalc();
+});
+$('#btnTip').addEventListener('click', function(){
+  var line = $('#recallLine'), open = line.classList.contains('hidden');
+  line.classList.toggle('hidden', !open);
+  this.setAttribute('aria-pressed', String(open));
+});
+
+function showQuestion(){
+  var q = G.qs[G.i], t = TYPES[q.type];
+  G.view = 'orig'; G.marks = {orig:{},sorted:{}}; G.usedSort = false; G.revealed = false; G.review = false;
+  var badge = $('#tbadge');
+  badge.className = 'tbadge t-' + q.type;
+  badge.textContent = t.icon + ' ' + t.name;
+  $('#qprompt').textContent = t.prompt;
+  $('#scen').textContent = '📍 ' + q.scenario;
+  $('#trayTitle').textContent = '📋 ' + q.n + ' datos';
+  $('#recallLine').textContent = t.recall;
+  $('#recallLine').classList.add('hidden');
+  $('#btnTip').setAttribute('aria-pressed','false');
+  $('#qcount').textContent = 'Pregunta ' + (G.i+1) + ' de ' + G.qs.length;
+  $('#bar').style.width = (G.i / G.qs.length * 100) + '%';
+  renderTray();
+  calc.expr = ''; updateCalc();
+  var inp = $('#answer');
+  inp.value = ''; inp.readOnly = false;
+  $('#feedback').textContent = '';
+  $('#explain').classList.add('hidden'); $('#explain').innerHTML = '';
+  $('#qcard').classList.remove('good','bad');
+  setMood($('#gameMascot'), 'think');
+  $('#btnGo').textContent = '¡Responder!';
+  $('#btnGo').disabled = false;
+  $('#btnSkip').classList.remove('hidden'); $('#btnSkip').disabled = false;
+  $('#timer').classList.remove('paused');
+  G.locked = false; G.qStart = Date.now();
+  window.scrollTo(0,0);
+  try{ inp.focus({preventScroll:true}); }catch(e){ inp.focus(); }
+}
+function cardCenter(){
+  var r = $('#qcard').getBoundingClientRect();
+  return { x: r.left + r.width/2, y: Math.max(80, r.top + 60) };
+}
+function reveal(q){
+  G.revealed = true;
+  if(q.type === 'median') G.view = 'sorted';
+  renderTray();
+  var hl = $('#tray').querySelector('.chip.hl');
+  if(hl && hl.scrollIntoView){ try{ hl.scrollIntoView({block:'nearest', inline:'nearest'}); }catch(e){} }
+}
+function answer(skip){
+  if(!G || G.over || G.locked) return;
+  var q = G.qs[G.i];
+  var raw = $('#answer').value.trim();
+  if(!skip && (raw === '' || raw === ',' || raw === '.')){
+    $('#feedback').textContent = 'Escribe un número y pulsa Responder.';
+    $('#answer').focus();
+    return;
+  }
+  G.locked = true;
+  $('#answer').readOnly = true;
+  $('#btnSkip').disabled = true;
+  G.answered++; G.byType[q.type].t++;
+  var given = skip ? null : parseFloat(raw.replace(',','.'));
+  var ok = !skip && !isNaN(given) && Math.abs(given - q.ans) < 0.001;
+  var secs = (Date.now() - G.qStart) / 1000;
+  var card = $('#qcard'), fb = $('#feedback');
+  reveal(q);
+  if(ok){
+    G.ok++; G.byType[q.type].ok++; G.streak++; if(G.streak > G.best) G.best = G.streak;
+    var target = 40 + q.n * 3;
+    var speed = Math.max(0, Math.round((1 - secs/target) * 10));
+    var pts = 20 + Math.min(G.streak - 1, 5) * 3 + speed;
+    if(G.usedSort) pts = Math.max(5, pts - 5);
+    G.score += pts;
+    card.classList.add('good');
+    setMood($('#gameMascot'), 'cheer');
+    fb.textContent = PRAISE[(Math.random()*PRAISE.length)|0] + ' +' + pts;
+    var c = cardCenter(); burst(G.streak >= 3 ? 34 : 18, c.x, c.y, G.streak >= 3 ? 190 : 120);
+    sfx.ok();
+    $('#btnGo').disabled = true;
+    G.nextId = setTimeout(next, 1500);
+  }else{
+    G.streak = 0;
+    G.mistakes.push({ type:q.type, ans:q.ans, given:given });
+    card.classList.add('bad');
+    setMood($('#gameMascot'), 'sad');
+    fb.textContent = (skip ? 'Saltaste. ' : ENCOURAGE[(Math.random()*ENCOURAGE.length)|0] + ' ') + 'La respuesta era ' + fmtNum(q.ans) + '.';
+    var ex = $('#explain'); ex.innerHTML = '💡 ' + q.explain; ex.classList.remove('hidden');
+    sfx.bad();
+    G.review = true;
+    G.pausedAt = Date.now();
+    $('#timer').classList.add('paused');
+    $('#btnSkip').classList.add('hidden');
+    $('#btnGo').textContent = 'Siguiente ➡️';
+    $('#btnGo').disabled = false;
+    $('#btnGo').focus();
+    if(ex.scrollIntoView){ try{ ex.scrollIntoView({block:'nearest'}); }catch(e){} }
+  }
+  $('#score').textContent = G.score; $('#streak').textContent = G.streak; $('#okCount').textContent = G.ok;
+  $('#bar').style.width = ((G.i + 1) / G.qs.length * 100) + '%';
+}
+function next(){
+  if(!G || G.over) return;
+  clearTimeout(G.nextId);
+  if(G.pausedAt){ G.start += Date.now() - G.pausedAt; G.pausedAt = null; }
+  G.i++;
+  if(G.i >= G.qs.length) finish('done'); else showQuestion();
+}
+function stopTimers(){
+  if(!G) return;
+  clearInterval(G.tickId); clearTimeout(G.nextId);
+}
+function finish(reason){
+  if(!G || G.over) return;
+  var total = elapsed();
+  G.over = true; stopTimers();
+  if(G.limit && total > G.limit) total = G.limit;
+  var acc = G.answered ? G.ok / G.answered : 0;
+  var stars = acc >= 0.9 ? 3 : acc >= 0.7 ? 2 : acc >= 0.4 ? 1 : 0;
+  if(G.answered === 0) stars = 0;
+  var wasRecord = G.score > (bests[cfgKey()] || 0) && G.score > 0;
+  saveBest(G.score);
+
+  var title, mood;
+  if(reason === 'time' && stars >= 2){ title = '¡Se acabó el tiempo, qué velocidad!'; mood = 'cheer'; }
+  else if(reason === 'time'){ title = '¡Se acabó el tiempo!'; mood = 'think'; }
+  else if(stars === 3){ title = '¡Eres un detective de datos!'; mood = 'cheer'; }
+  else if(stars === 2){ title = '¡Muy bien, sigue así!'; mood = 'happy'; }
+  else if(stars === 1){ title = '¡Buen intento, vas mejorando!'; mood = 'happy'; }
+  else { title = 'Cada dato cuenta: practica otra vez'; mood = 'think'; }
+  setMood($('#resMascot'), mood);
+  $('#resTitle').textContent = title;
+
+  var st = $('#resStars'); st.innerHTML = '';
+  for(var i=0;i<3;i++){
+    var sp = document.createElement('span');
+    sp.textContent = i < stars ? '⭐' : '☆';
+    sp.className = i < stars ? 'on' : 'off';
+    sp.style.animationDelay = (i*0.25) + 's';
+    st.appendChild(sp);
+  }
+  $('#resRecord').classList.toggle('hidden', !wasRecord);
+  $('#rScore').textContent = G.score;
+  $('#rOk').textContent = G.ok + '/' + G.answered;
+  $('#rTime').textContent = fmtShort(total);
+  $('#rAvg').textContent = G.answered ? fmtShort(total / G.answered) : '0:00';
+
+  var bt = $('#byType'); bt.innerHTML = '';
+  ['mean','median','mode'].forEach(function(k){
+    var d = G.byType[k];
+    if(!d.t) return;
+    var s = document.createElement('span');
+    s.className = 't-' + k;
+    s.textContent = TYPES[k].icon + ' ' + TYPES[k].name + ' ' + d.ok + '/' + d.t;
+    bt.appendChild(s);
+  });
+
+  var list = $('#reviewList'); list.innerHTML = '';
+  G.mistakes.slice(0, 10).forEach(function(m){
+    var li = document.createElement('li');
+    var b = document.createElement('b'); b.textContent = TYPES[m.type].name + ' correcta: ' + fmtNum(m.ans);
+    var s = document.createElement('span'); s.textContent = m.given === null ? 'saltada' : 'respondiste ' + fmtNum(m.given);
+    li.appendChild(b); li.appendChild(s); list.appendChild(li);
+  });
+  $('#review').classList.toggle('hidden', G.mistakes.length === 0);
+
+  show('result');
+  if(stars >= 2){ sfx.win(); rain(70); }
+  else if(stars === 1){ sfx.ok(); rain(25); }
+}
+
+/* ---------- Eventos ---------- */
+$('#btnPlay').addEventListener('click', startGame);
+$('#btnAgain').addEventListener('click', startGame);
+$('#btnMenu').addEventListener('click', function(){ renderMenu(); show('menu'); });
+$('#btnQuit').addEventListener('click', function(){
+  if(G){ G.over = true; stopTimers(); }
+  renderMenu(); show('menu');
+});
+$('#btnGo').addEventListener('click', function(){
+  if(G && G.review) next(); else answer(false);
+});
+$('#btnSkip').addEventListener('click', function(){ answer(true); });
+var inp = $('#answer');
+inp.addEventListener('input', function(){
+  var v = this.value.replace(/[^0-9.,]/g,'');
+  var m = v.search(/[.,]/);
+  if(m >= 0) v = v.slice(0, m+1) + v.slice(m+1).replace(/[.,]/g,'');
+  this.value = v.slice(0, 9);
+});
+inp.addEventListener('keydown', function(e){
+  if(e.key === 'Enter'){
+    e.preventDefault();
+    if(G && G.review) next(); else answer(false);
+  }
+});
+
+renderMenu();
+})();
+</script>
+</body>
+</html>
